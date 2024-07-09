@@ -106,8 +106,7 @@ void main(void)
     scia_fifo_init();     // Initialize the SCI FIFO
     scia_echoback_init();  // Initalize SCI for echoback
 
-    msg =
-            "\r\nYou will enter a string please press F then input a number (1-5000), and the DSP will echo it back when you press enter!\0";
+    msg = "\r\nYou will enter a string please press F then input a number (1-5000), and the DSP will echo it back when you press enter!\0";
     scia_msg(msg);
 
     for (;;)
@@ -141,36 +140,43 @@ void main(void)
             scia_msg(buffer);
 
             //TODO: make this a function in the future
+
+            //process the buffer
             int i = 0;
 
             while (buffer[i] != '\0') //loops until null character is found   TODO:change to find length and loop a discrete amount
             {
+                if(buffer[i] == ',')
+                        i++;
                 switch (buffer[i])
                 {
                 case 'f':
                 case 'F':
                     ParametersTest.pwmFreq = populate_variable(&(buffer[i])); //passes where you left off in the array
-                    i += (int) log10((double) ParametersTest.pwmFreq) + 3; //adds 1 for space, 1 for the letter, and 1 for log, can optimize later
+                    i += (int)log10((double) ParametersTest.pwmFreq) + 3; //adds 1 for space, 1 for the letter, and 1 for log, can optimize later
                     break;
 
                 default:
                     msg = "\r\nYou sent an invalid character: ";
                     scia_msg(msg);
                     scia_xmit(buffer[i]); //prints invalid character to serial monitor
+                    msg = "\r\nRemember the format should be F 2500,P 3400,... spacing does matter: ";
+                    scia_msg(msg);
                     i++;
                     break;
                 }
 
-                msg = "\r\nthe number you tried to send was: ";
+                msg = "\r\nThe number you tried to send was: ";
                 scia_msg(msg);
-                sprintf(msg, "%d%c", ParametersTest.pwmFreq, '\0'); //changed int to string and adds terminating character
-                scia_msg(msg);
+                char tempMsg[20];
+                sprintf(tempMsg, "%d", ParametersTest.pwmFreq); //changed int to string and adds terminating character
+                scia_msg(tempMsg);
             }
 
             bufferIndex = 0; // Reset buffer index
             //reset buffer
             int k = 0;
-            for (k = 0; k < sizeof(buffer); k++)
+            for (k = 0; k < MAX_BUFFER_SIZE; k++)
             {
                 buffer[k] = '\0';
             }
@@ -198,7 +204,7 @@ void main(void)
 //this function takes in where we left off in the array, and returns an int value
 int populate_variable(const char *arr)
 {
-    char temp[6] = { '\0' };
+    char temp[10] = { '\0' };
     int i = 1; //goes to next spot in array (we were looking at the letter before)
     int j = 0;
 
