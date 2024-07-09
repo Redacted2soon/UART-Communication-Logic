@@ -150,18 +150,31 @@ void main(void)
             //TODO: make this a function in the future
 
             //process the buffer
-            int i = 0;
+            int i = 0, space = 0;
 
             while (buffer[i] != '\0') //loops until null character is found   TODO:change to find length and loop a discrete amount
             {
+                //checks for multiple parameters
                 if(buffer[i] == ',')
-                        i++;
+                    i++;
+
+                //checks for extra spaces
+                while(buffer[i] == ' ')
+                {
+                    i++;
+                }
+
+                //checks for space sandwiched between letter value
+                if (buffer[i+1] == ' ' && buffer[i+2] < ':' )
+                    space = 1;
+
                 switch (buffer[i])
                 {
                 case 'f':
                 case 'F':
                     ParametersTest.pwmFreq = populate_variable(&(buffer[i])); //passes where you left off in the array
-                    i += (int)log10((double) ParametersTest.pwmFreq) + 3; //adds 1 for space, 1 for the letter, and 1 for log, can optimize later
+                    i += (int)log10((double) ParametersTest.pwmFreq) + 2 + space; //adds index's to account for: the letter and for log ... (since log(9) = .95, log(99) = 1.995) (which is where the 2 comes from),  if there's a space, digits in number
+                    space = 0; //reset space
                     break;
 
                 default:
