@@ -1,3 +1,11 @@
+/* Baud rate = 9600
+ * Data = 8
+ * Stop bit = 1
+ * Parity = none
+ *  Newline at CR+LF
+ *  Make sure terminating character is sent with data (marks end)
+*/
+
 //
 // Included Files
 //
@@ -274,8 +282,7 @@ void scia_xmit(int a)
 //
 void scia_msg(char *msg)
 {
-    int i;
-    i = 0;
+    int i = 0;
     while (msg[i] != '\0') //keeps transmitting data until end of line (enter has been pressed, denoted by '\0')
     {
         scia_xmit(msg[i]); //turns the letter to be represented by a number (ascii)
