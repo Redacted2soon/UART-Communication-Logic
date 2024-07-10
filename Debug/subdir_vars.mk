@@ -6,8 +6,8 @@ SHELL = cmd.exe
 
 # Add inputs and outputs from these tool invocations to the build variables 
 CMD_SRCS += \
-C:/ti/c2000/C2000Ware_5_02_00_00/device_support/f2806x/common/cmd/28069_RAM_lnk.cmd \
-C:/ti/c2000/C2000Ware_5_02_00_00/device_support/f2806x/headers/cmd/F2806x_Headers_nonBIOS.cmd 
+C:/ti/c2000/C2000Ware_5_02_00_00/device_support/f2806x/headers/cmd/F2806x_Headers_nonBIOS.cmd \
+../f28069M_ram_lnk.cmd 
 
 ASM_SRCS += \
 C:/ti/c2000/C2000Ware_5_02_00_00/device_support/f2806x/common/source/F2806x_CodeStartBranch.asm \

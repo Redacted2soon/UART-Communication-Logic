@@ -40,7 +40,7 @@ void scia_echoback_init(void);
 void scia_fifo_init(void);
 void scia_xmit(int a);
 void scia_msg(char *msg);
-int populate_variable(const char *arr, float *var, float min, float max);
+int populate_variable(const char *arr, float *var, float min, float max, int *pindex);
 
 // Globals
 Uint16 LoopCount;
@@ -68,16 +68,16 @@ void main(void)
     char buffer[MAX_BUFFER_SIZE] = { '\0' };
     Uint16 bufferIndex = 0;
     char *msg;
+    int flag = 1;
+    int *pindex = NULL;
 
-    // Step 1. Initialize System Control:
-    // PLL, WatchDog, enable Peripheral Clocks
-    // This example function is found in the F2806x_SysCtrl.c file.
+
+
     InitSysCtrl();
-
-    // For this example, only init the pins for the SCI-A port.
-    // This function is found in the F2806x_Sci.c file.
     InitSciaGpio();
 
+    scia_fifo_init();     // Initialize the SCI FIFO
+    scia_echoback_init();  // Initalize SCI for echoback
     // Step 3. Clear all interrupts and initialize PIE vector table:
     // Disable CPU interrupts
     DINT;
@@ -104,8 +104,7 @@ void main(void)
     LoopCount = 0;
     ErrorCount = 0;
 
-    scia_fifo_init();     // Initialize the SCI FIFO
-    scia_echoback_init();  // Initalize SCI for echoback
+
 
     msg = "\r\nEnter a string in the format 'P 2000,S 60,M 1.0,O 0.0,A1 0.0,A2 120.0,A3 240.0'\0";
     scia_msg(msg);
@@ -117,7 +116,7 @@ void main(void)
             // wait for a character
         }
 
-        // Get character
+
         ReceivedChar = SciaRegs.SCIRXBUF.all;
 
         // Check if it's a terminating character
@@ -126,17 +125,17 @@ void main(void)
             // Echo the buffer back
             msg = "\r\nYou sent: ";
             scia_msg(msg);
-            buffer[bufferIndex] = '\0'; // Null-terminate the buffer
+            buffer[bufferIndex] = '\0';
             scia_msg(buffer);
 
-            //TODO: make this a function in the future
+            //TODO: make this a function in the future, If you return the address of where you left off, you wont have to incrament i with log
 
             //process the buffer
-            int i = 0, space = 0;
+            int i = 0;
             while (buffer[i] != '\0') //loops until null character is found   TODO:change to find length and loop a discrete amount
             {
                 //checks for multiple parameters
-                if(buffer[i] == ',')
+                if(buffer[i] == ',' || buffer[i] == '.')
                     i++;
 
                 //checks for extra spaces
@@ -144,67 +143,67 @@ void main(void)
                 {
                     i++;
                 }
-
+                pindex = &i; //holds address of i
                 //checks for space sandwiched between letter value TODO: (does not work if F___231 more than one space here)
-                if (buffer[i+1] == ' ' && buffer[i+2] < ':' )
-                    space = 1;
-/////////CHANGE THE DECIMALS maybe? atoi(to_string(epwmParams.pwm_frequency)
+                //if (buffer[i+1] == ' ' && buffer[i+2] < ':' )
+                   // space = 1;
+
+                if(buffer[i] > '@' && buffer[i] < '{')
+                {
+                    flag = 1;
+                }
+
+                /////////CHANGE THE DECIMALS maybe?
+                //make function that passes through the variable i address;
                 switch (buffer[i])
                 {
                 case 'P':
-                    populate_variable(&(buffer[i]), &epwmParams.pwm_frequency, 687, 5000);
-                    i += (int)log10((double)epwmParams.pwm_frequency) + 2 + space;
-                    space = 0;
+                    populate_variable(&(buffer[i]), &epwmParams.pwm_frequency, 687, 5000, pindex);
                     break;
                 case 'S':
-                    populate_variable(&(buffer[i]), &epwmParams.sin_frequency, 0, 150);
-                    i += (int)log10((double)epwmParams.sin_frequency) + 2 + space;
-                    space = 0;
+                    populate_variable(&(buffer[i]), &epwmParams.sin_frequency, 0, 150, pindex);
                     break;
                 case 'M':
-                    populate_variable(&(buffer[i]), &epwmParams.modulation_depth, 0, 1);
-                    i += (int)log10((double)epwmParams.modulation_depth) + 2 + space;
-                    space = 0;
+                    populate_variable(&(buffer[i]), &epwmParams.modulation_depth, 0, 1, pindex);
                     break;
                 case 'O':
-                    populate_variable(&(buffer[i]), &epwmParams.offset, -(1 - epwmParams.modulation_depth) / 2, (1 - epwmParams.modulation_depth) / 2);
-                    i += (int)log10((double)epwmParams.offset) + 2 + space;
-                    space = 0;
+                    populate_variable(&(buffer[i]), &epwmParams.offset, -(1 - epwmParams.modulation_depth) / 2, (1 - epwmParams.modulation_depth) / 2, pindex);
                     break;
                 case 'A':
-                    switch(buffer[i+1])
+                    *pindex += 1;
+                    switch(buffer[i])
                     {
-                    case '1':
-                        populate_variable(&(buffer[i]), &epwmParams.angle_1, -360, 360);
-                        i += (int)log10((double)epwmParams.angle_1) + 3 + space;
-                        space = 0;
+                    case 'A':
+                        populate_variable(&(buffer[i]), &epwmParams.angle_1, -360, 360, pindex);
                         break;
-                    case '2':
-                        populate_variable(&(buffer[i]), &epwmParams.angle_2, -360, 360);
-                        i += (int)log10((double)epwmParams.angle_2) + 3 + space;
-                        space = 0;
+                    case 'B':
+                        populate_variable(&(buffer[i]), &epwmParams.angle_2, -360, 360, pindex);
                         break;
-                    case '3':
-                        populate_variable(&(buffer[i]), &epwmParams.angle_3, -360, 360);
-                        i += (int)log10((double)epwmParams.angle_3) + 3 + space;
-                        space = 0;
+                    case 'C':
+                        populate_variable(&(buffer[i]), &epwmParams.angle_3, -360, 360, pindex);
                         break;
+                    default:
+                      continue;
                     }
+                    break;
                 default:
+                    if(flag)
+                    {
+                    flag = 0; //If Invalid input, numbers after not printed to screen
                     msg = "\r\nInvalid character: ";
                     scia_msg(msg);
                     scia_xmit(buffer[i]);
                     msg = "\r\nFormat should be P 2000,S 60,M 1.0,O 0.0,A1 0.0,A2 120.0,A3 240.0";
                     scia_msg(msg);
+                    }
                     i++;
                     break;
                 }
 
-
                 msg = "\r\nThe number you tried to send was: ";
                 scia_msg(msg);
                 char tempMsg[20];
-                sprintf(tempMsg, "%d", (char)epwmParams.pwm_frequency); //changed int to string and adds terminating character
+                sprintf(tempMsg, "%d", (char)epwmParams.angle_1); //changed int to string and adds terminating character
                 scia_msg(tempMsg);
             }
 
@@ -235,20 +234,25 @@ void main(void)
 }
 
 //this function takes in where we left off in the array, and returns an int value
-int populate_variable(const char *arr, float *var, float min, float max)
+int populate_variable(const char *arr, float *var, float min, float max, int *pindex)
 {
     char temp[10] = { '\0' };
     int i = 1; //goes to next spot in array (we were looking at the letter before)
     int j = 0;
 
-//checks for space between letter and value, ex F 10000
-    if (arr[i] == ' ')
+    while(arr[i] == ' ')
         i++;
+
+    if(arr[i] == '.')
+    {
+        temp[j++] = '.';
+        i++;
+    }
 
     while (arr[i] != '\0' && arr[i] >= '0' && arr[i] <= '9') //check to make sure array is a number
     {
         temp[j++] = arr[i];   //populates temp array to hold value
-        i++;                //keep track of where we are in the array
+        i++;                //keep track of where we are in the array passed through
     }
 
     // Converts characters to float, assigns to *var
@@ -256,10 +260,12 @@ int populate_variable(const char *arr, float *var, float min, float max)
     if (*var < min || *var > max)
     {
         char errorMsg[MAX_MSG_SIZE];
-        sprintf(errorMsg, "\r\nValue out of bounds: %f", *var);
+        sprintf(errorMsg, "\r\nValue out of bounds:");
         scia_msg(errorMsg);
         *var = (min + max) / 2; // Set to a default value within bounds
     }
+
+    *pindex += i;
     return 0;
 }
 

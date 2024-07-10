@@ -21,8 +21,8 @@ ORDERED_OBJS += \
 "./F2806x_Sci.obj" \
 "./F2806x_SysCtrl.obj" \
 "./F2806x_usDelay.obj" \
-"C:/ti/c2000/C2000Ware_5_02_00_00/device_support/f2806x/common/cmd/28069_RAM_lnk.cmd" \
 "C:/ti/c2000/C2000Ware_5_02_00_00/device_support/f2806x/headers/cmd/F2806x_Headers_nonBIOS.cmd" \
+"../f28069M_ram_lnk.cmd" \
 $(GEN_CMDS__FLAG) \
 -lIQmath_fpu32.lib \
 
