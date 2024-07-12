@@ -21,6 +21,8 @@
 #define MODULATION_DEPTH_MIN 0.0
 #define MODULATION_DEPTH_MAX 1.0
 #define CLKRATE 90.0*1000000.0
+#define MIN_ANGLE -360
+#define MAX_ANGLE 360
 #define MAX_BUFFER_SIZE 100
 #define MAX_MSG_SIZE 100
 
@@ -37,7 +39,8 @@ typedef struct
 } EPwmParams;
 
 // Struct to hold parameters
-EPwmParams originalepwmParams = { .pwm_frequency = 2500, // frequency of pwm DO NOT GO BELOW 687Hz, counter wont work properly 65535 < 90*10^6 / (687*2)
+EPwmParams originalePwmParams = {
+        .pwm_frequency = 2500, // frequency of pwm DO NOT GO BELOW 687Hz, counter wont work properly 65535 < 90*10^6 / (687*2)
         .sin_frequency = 60,       // sin frequency 0-150Hz
         .modulation_depth = 1.0,   // modulation depth between 0 and 1
         .offset = 0.0, // make sure offset is between +-(1-MODULATION_DEPTH)/2
@@ -61,11 +64,11 @@ int confirm_values(void);
 void print_params(const EPwmParams *arr);
 void float_to_string(char *msg, float value);
 void clear_scia_rx_buffer(void);
-
+void print_welcome_screen(void);
 // Main
 void main(void)
 {
-    memcpy(&newEpwmParams, &originalepwmParams, sizeof(EPwmParams));
+    memcpy(&newEpwmParams, &originalePwmParams, sizeof(EPwmParams));
 
     InitSysCtrl();
     InitSciaGpio();
@@ -79,21 +82,8 @@ void main(void)
     IER = 0x0000;
     IFR = 0x0000;
     InitPieVectTable();
-    scia_msg(
-            "\r\n-------------------------------------------------------------------------------------------------");
-    scia_msg(
-            "\r\nPlease enter a string in the format PARAMATER VALUE, PARAMATER2 VALUE (for example: P 2500, S 60,M .13)\r\n\0");
-    scia_msg("\r\nP = PWM frequency (in Hz,ACCEPTABLE INPUTS: 687 - 10000)");
-    scia_msg("\r\nS = Sin wave frequency (in Hz, ACCEPTABLE INPUTS: 1 - 300)");
-    scia_msg("\r\nM = Modulation depth (ACCEPTABLE INPUTS: 0.0 - 1.0)");
-    scia_msg(
-            "\r\nO = Offset (in volts, ACCEPTABLE INPUTS: +-((1-Modulation depth) / 2) )");
-    scia_msg(
-            "\r\nA1 = Angle 1 offset (in degrees, ACCEPTABLE INPUTS: 0 - 360)");
-    scia_msg(
-            "\r\nA2 = Angle 2 offset (in degrees, ACCEPTABLE INPUTS: 0 - 360)");
-    scia_msg(
-            "\r\nA3 = Angle 3 offset (in degrees, ACCEPTABLE INPUTS: 0 - 360)");
+
+    print_welcome_screen();
 
     static char buffer[MAX_BUFFER_SIZE];
     Uint16 bufferIndex = 0;
@@ -127,36 +117,20 @@ void main(void)
             if (confirm)
             {
                 scia_msg("\r\n\r\nValues confirmed and set.");
-                memcpy(&originalepwmParams, &newEpwmParams, sizeof(EPwmParams));
+                memcpy(&originalePwmParams, &newEpwmParams, sizeof(EPwmParams));
                 // Values are confirmed, proceed with using the parameters
             }
             else
             {
                 scia_msg("\r\n\r\nValues reset to:");
-                print_params(&originalepwmParams);
+                print_params(&originalePwmParams);
             }
-            //can possibly call a function to print this
-            scia_msg(
-                    "\r\n\r\n-------------------------------------------------------------------------------------------------");
-            scia_msg(
-                    "\r\nPlease Enter a string in the format PARAMATER VALUE,PARAMATER2 VALUE (for example: P 2500, S 60,M .13)\r\n\0");
-            scia_msg(
-                    "\r\nP = PWM frequency (in Hz,ACCEPTABLE INPUTS: 687 - 10000)");
-            scia_msg(
-                    "\r\nS = Sin wave frequency (in Hz, ACCEPTABLE INPUTS: 1 - 300)");
-            scia_msg("\r\nM = Modulation depth (ACCEPTABLE INPUTS: 0.0 - 1.0)");
-            scia_msg(
-                    "\r\nO = Offset (volts, ACCEPTABLE INPUTS: +-((1-Modulation depth) / 2) )");
-            scia_msg(
-                    "\r\nA1 = Angle 1 offset (in degrees, ACCEPTABLE INPUTS: 0 - 360)");
-            scia_msg(
-                    "\r\nA2 = Angle 2 offset (in degrees, ACCEPTABLE INPUTS: 0 - 360)");
-            scia_msg(
-                    "\r\nA3 = Angle 3 offset (in degrees, ACCEPTABLE INPUTS: 0 - 360)");
+
 
             bufferIndex = 0;
             memset(buffer, 0, MAX_BUFFER_SIZE);
             clear_scia_rx_buffer();
+            print_welcome_screen();
         }
         else
         {
@@ -168,9 +142,11 @@ void main(void)
             else
             {
                 scia_msg(
-                        "\r\nError: Input buffer overflow. Too many characters added.");
+                        "\r\n\r\nError: Input buffer overflow. Too many characters added. Buffer reset");
                 bufferIndex = 0; // Reset buffer index to avoid overflow
                 memset(buffer, 0, MAX_BUFFER_SIZE);
+                clear_scia_rx_buffer();
+                print_welcome_screen();
             }
         }
     }
@@ -224,17 +200,17 @@ int process_buffer(const char *buffer)
             if (buffer[i] == '1')
             {
                 error = populate_variable(&buffer[i], &newEpwmParams.angle_1,
-                                          -360, 360, &i);
+                                          MIN_ANGLE, MAX_ANGLE, &i);
             }
             else if (buffer[i] == '2')
             {
                 error = populate_variable(&buffer[i], &newEpwmParams.angle_2,
-                                          -360, 360, &i);
+                                          MIN_ANGLE, MAX_ANGLE, &i);
             }
             else if (buffer[i] == '3')
             {
                 error = populate_variable(&buffer[i], &newEpwmParams.angle_3,
-                                          -360, 360, &i);
+                                          MIN_ANGLE, MAX_ANGLE, &i);
             }
             else
             {
@@ -248,25 +224,30 @@ int process_buffer(const char *buffer)
             error = 1;
         }
     }
+
     if(newEpwmParams.offset > (1 - newEpwmParams.modulation_depth)/2 ||newEpwmParams.offset < -(1 - newEpwmParams.modulation_depth)/2)
+    {
+        newEpwmParams.offset = originalePwmParams.offset;
+        scia_msg("\r\n\r\nOffset out of range");
         error = 1;
+    }
+
     //checks for errors, returns 0 if error is 1
     return error ? 0 : 1;
 }
 
 // This function takes in where we left off in the array, and returns an int value
-int populate_variable(const char *arr, float *var, float min, float max,
-                      int *pindex)
+int populate_variable(const char *arr, float *var, float min, float max, int *pindex)
 {
     char temp[10] = { '\0' };  // Reduced the size of the temp array
-    int i = 1, j = 0;
+    int i = 1, j = 0, periodCount = 0;
 
     // Skips white space between letter and number
     while (arr[i] == ' ')
         i++;
 
     // Check to make sure array is a number or decimal
-    while (arr[i] != '\0' && (arr[i] == '.' || (arr[i] >= '0' && arr[i] <= '9')))
+    while (arr[i] != '\0' && (arr[i] == '.'|| arr[i] == '-' || (arr[i] >= '0' && arr[i] <= '9')))
     {
         // Return error if number was too big
         if (j > 8)
@@ -275,7 +256,20 @@ int populate_variable(const char *arr, float *var, float min, float max,
             report_invalid_input(*temp);
             return 1;
         }
+
+        if(arr[i] == '.')
+        {
+         periodCount++;
+        }
+
         temp[j++] = arr[i++];   // Populates temp array to hold value
+    }
+
+    if(periodCount > 1)
+    {
+        scia_msg("\r\nInput has too many decimal points");
+        report_invalid_input(*temp);
+        return 1;
     }
 
     *var = atof(temp); // Converts characters to float, assigns to *var
@@ -284,7 +278,6 @@ int populate_variable(const char *arr, float *var, float min, float max,
     {
         scia_msg("\r\nFirst value out of bound: ");
         scia_msg(temp);
-        *var = (min + max) / 2; // Set to a default value within bounds
         return 1;
     }
     // Updates index
@@ -356,7 +349,7 @@ void float_to_string(char *msg, float value)
     if (fractionalPart < 0)
         fractionalPart = -fractionalPart;
 
-    int fractionalAsInt = (int) ((fractionalPart + .0005) * 1000); // 3 decimal places
+    int fractionalAsInt = (int) ((fractionalPart + .0001) * 1000); // 3 decimal places
 
     if (fractionalAsInt == 0)
     {
@@ -381,7 +374,7 @@ void clear_scia_rx_buffer()
     while (SciaRegs.SCIFFRX.bit.RXFFST != 0)
     {
         // Read the character to clear the buffer
-        SciaRegs.SCIRXBUF.all;
+        char temp = SciaRegs.SCIRXBUF.all;
     }
 }
 
@@ -405,6 +398,27 @@ void scia_msg(const char *msg)
     }
 }
 
+void print_welcome_screen(void)
+{
+    scia_msg(
+            "\r\n\r\n-------------------------------------------------------------------------------------------------");
+    scia_msg(
+            "\r\nPlease Enter a string in the format PARAMATER VALUE,PARAMATER2 VALUE (for example: P 2500, S 60,M .13)\r\n\0");
+    scia_msg(
+            "\r\nP = PWM frequency (in Hz,ACCEPTABLE INPUTS: 687 - 10000)");
+    scia_msg(
+            "\r\nS = Sin wave frequency (in Hz, ACCEPTABLE INPUTS: 1 - 300)");
+    scia_msg("\r\nM = Modulation depth (ACCEPTABLE INPUTS: 0.0 - 1.0, up to three decimal points)");
+    scia_msg(
+            "\r\nO = Offset (volts, ACCEPTABLE INPUTS: +-((1-Modulation depth) / 2), up to three decimal points )");
+    scia_msg(
+            "\r\nA1 = Angle 1 offset (in degrees, ACCEPTABLE INPUTS: 0 - 360)");
+    scia_msg(
+            "\r\nA2 = Angle 2 offset (in degrees, ACCEPTABLE INPUTS: 0 - 360)");
+    scia_msg(
+            "\r\nA3 = Angle 3 offset (in degrees, ACCEPTABLE INPUTS: 0 - 360)");
+
+}
 void scia_echoback_init()
 {
     SciaRegs.SCICCR.all = 0x0007; // 1 stop bit,  No loopback, No parity, 8 char bits, async mode, idle-line protocol
