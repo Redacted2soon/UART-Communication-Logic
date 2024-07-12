@@ -242,6 +242,14 @@ int populate_variable(const char *arr, float *var, float min, float max, int *pi
     char temp[10] = { '\0' };  // Reduced the size of the temp array
     int i = 1, j = 0, periodCount = 0;
 
+    //Throws error if double letter was input
+    if(arr[i] > '@')
+    {
+        scia_msg("\r\nInvalid input: ");
+        scia_msg(&arr[i-1]);
+        return 1;
+    }
+
     // Skips white space between letter and number
     while (arr[i] == ' ')
         i++;
